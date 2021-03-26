@@ -4,7 +4,7 @@
 <br />
 <p align="center">
     <br />
-    <a href="https://raw.githack.com/SimonsaysNL/Pinball-Physics-Threejs/master/intro/index.html">View Demo</a>
+    <a href="https://raw.githack.com/SimonsaysNL/Pinball-Physics-Threejs/main/pinball/index.html">View Demo</a>
     ·
     <a href="https://github.com/SimonsaysNL/Pinball-Physics-Threejs/issues">Report Bug</a>
     ·
