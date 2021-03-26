@@ -1,5 +1,5 @@
 # Pinball-Physics-Threejs Prototype - Work in Progress
-## Physics - Loading
+## Physics - GLTF to physics object
 
 <br />
 <p align="center">
