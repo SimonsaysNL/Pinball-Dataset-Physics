@@ -33,7 +33,7 @@
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
-![](pinball-physics.png)
+![](pinball-physics.PNG)
 
 Pinball machine created with Cannon.js
 
