@@ -11,30 +11,25 @@
         
         <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.5.1/gsap.min.js"></script>
         
-		<div id="info">
-			<a href="https://threejs.org" target="_blank" rel="noopener">three.js</a> - Pinball physics<br />
-			Space - launch ball, z - left flipper, / - right flipper
-		</div>
+        <div id="info">
+            <a href="https://threejs.org" target="_blank" rel="noopener">three.js</a> - Pinball physics<br />
+            Space - launch ball, z - left flipper, / - right flipper
+        </div>
 
-		<script type="module">
+        <script type="module">
 
-			import * as THREE from '../build/three.module.js';
+            import * as THREE from '../build/three.module.js';
             import { GLTFLoader } from './jsm/loaders/GLTFLoader.js';
             import { GUI } from './jsm/libs/dat.gui.module.js';
-			import Stats from './jsm/libs/stats.module.js';
-			import { OrbitControls } from './jsm/controls/OrbitControls.js';
+            import Stats from './jsm/libs/stats.module.js';
+            import { OrbitControls } from './jsm/controls/OrbitControls.js';
             import { BufferGeometryUtils } from './jsm/utils/BufferGeometryUtils.js';
             import '../build/cannon.js';
 
-			let camera, scene, renderer, world, mass, body, shape, timeStep=1/60, geometry, material, mesh;
+            let camera, scene, renderer, world, mass, body, shape, geometry, material, mesh, flipperleft, flipperright, field, bumperleft, bumperright, object;
             
-            let flipperleft;
-            let flipperright;
-            let field;
-            let bumperleft;
-            let bumperright;
-            let object;
-            
+            const timeStep = 1/60;
+
             const manager = new THREE.LoadingManager();
             
             let loadingDone = false;
@@ -43,284 +38,26 @@
             
             let balls = {};
             let ballscount = 0;
-            
             let balllaunched = true;
             
             let bodies = {}
             
-            const mat = new CANNON.Material();
-            const groundMaterial = new CANNON.Material();
-            const bumperMaterial = new CANNON.Material();
-            const slingshotMaterial = new CANNON.Material();
+            const cannonMaterials = {};
             
-            const mat_ground = new CANNON.ContactMaterial(groundMaterial, mat, { friction: 0.0, restitution: 0.2 });
-            const mat_bumper = new CANNON.ContactMaterial(bumperMaterial, mat, { friction: 0.0, restitution: 1.5 });
-            const mat_slingshot = new CANNON.ContactMaterial(slingshotMaterial, mat, { friction: 0.0, restitution: 1.5 });
+            cannonMaterials["mat"] = new CANNON.Material();
+            cannonMaterials["groundMaterial"] = new CANNON.Material();
+            cannonMaterials["bumperMaterial"] = new CANNON.Material();
+            cannonMaterials["slingshotMaterial"] = new CANNON.Material();
+            
+            const mat_ground = new CANNON.ContactMaterial(cannonMaterials["groundMaterial"], cannonMaterials["mat"], { friction: 0.0, restitution: 0.2 });
+            const mat_bumper = new CANNON.ContactMaterial(cannonMaterials["bumperMaterial"], cannonMaterials["mat"], { friction: 0.0, restitution: 1.5 });
+            const mat_slingshot = new CANNON.ContactMaterial(cannonMaterials["slingshotMaterial"], cannonMaterials["mat"], { friction: 0.0, restitution: 1.5 });
             
             const matStdObjects = new THREE.MeshLambertMaterial({color: 0xffffff});
             
-            let gltflist = { 
-                a: {
-                    modelpath: 'models/',       //filepath
-                    modelfile: 'cube.gltf',     //file
-                    size: 1,                    //model size
-                    smooth: 1,                  //model smoothing on (1) or off (0)
-                    posx: 9,                    //position on x
-                    posy: 0,                    //position on y
-                    posz: 19,                   //position on z
-                    meshmat: groundMaterial     //physics material used
-                },
-                b: {
-                    modelpath: 'models/',
-                    modelfile: 'field-bottom-top.gltf',
-                    size: 1,
-                    smooth: 1,                  
-                    posx: -2,
-                    posy: 0,
-                    posz: 19,
-                    meshmat: groundMaterial
-                },
-                c: {
-                    modelpath: 'models/',
-                    modelfile: 'paddle.gltf',
-                    size: 1,
-                    smooth: 1,
-                    posx: -3.5,
-                    posy: 0,
-                    posz: 12.5,
-                    meshmat: groundMaterial
-                },
-                d: {
-                    modelpath: 'models/',
-                    modelfile: 'field-side.gltf',
-                    size: 1,
-                    smooth: 1,
-                    posx: -11,
-                    posy: 0,
-                    posz: 0,
-                    meshmat: groundMaterial
-                },
-                e: {
-                    modelpath: 'models/',
-                    modelfile: 'field-bottom-top.gltf',
-                    size: 1,
-                    smooth: 1,
-                    posx: 0,
-                    posy: 0,
-                    posz: -17,
-                    meshmat: groundMaterial
-                },
-                f: {
-                    modelpath: 'models/',
-                    modelfile: 'field-side.gltf',
-                    size: 1,
-                    smooth: 1,
-                    posx: 11,
-                    posy: 0,
-                    posz: 0,
-                    meshmat: groundMaterial
-                },
-                g: {
-                    modelpath: 'models/',
-                    modelfile: 'field-floor.gltf',
-                    size: 1,
-                    smooth: 1,
-                    posx: 0,
-                    posy: -2,
-                    posz: 0,
-                    meshmat: groundMaterial
-                },
-                h: {
-                    modelpath: 'models/',
-                    modelfile: 'paddle.gltf',
-                    size: 1,
-                    smooth: 1,
-                    posx: 2,
-                    posy: 0,
-                    posz: 12.5,
-                    meshmat: groundMaterial
-                },
-                i: {
-                    modelpath: 'models/',
-                    modelfile: 'bottom_left.gltf',
-                    size: 1,
-                    smooth: 1,
-                    posx: -8,
-                    posy: 0,
-                    posz: 13,
-                    meshmat: groundMaterial
-                },
-                j: {
-                    modelpath: 'models/',
-                    modelfile: 'bottom_right.gltf',
-                    size: 1,
-                    smooth: 1,
-                    posx: 6,
-                    posy: 0,
-                    posz: 13,
-                    meshmat: groundMaterial
-                },
-                k: {
-                    modelpath: 'models/',
-                    modelfile: 'launch_divider.gltf',
-                    size: 1,
-                    smooth: 1,
-                    posx: 7.75,
-                    posy: 0,
-                    posz: 0,
-                    meshmat: groundMaterial
-                },
-                l: {
-                    modelpath: 'models/',
-                    modelfile: 'drain_ramp.gltf',
-                    size: 1,
-                    smooth: 1,
-                    posx: -0.25,
-                    posy: 0,
-                    posz: 17.5,
-                    meshmat: groundMaterial
-                },
-                m: {
-                    modelpath: 'models/',
-                    modelfile: 'drain_cube.gltf',
-                    size: 1,
-                    smooth: 1,
-                    posx: -2.75,
-                    posy: 0,
-                    posz: 16.5,
-                    meshmat: groundMaterial
-                },
-                n: {
-                    modelpath: 'models/',
-                    modelfile: 'launch_ramp.gltf',
-                    size: 1,
-                    smooth: 1,
-                    posx: 9.35,
-                    posy: 0,
-                    posz: -15.35,
-                    meshmat: groundMaterial
-                },
-                o: {
-                    modelpath: 'models/',
-                    modelfile: 'bumper.gltf',
-                    size: 1,
-                    smooth: 1,
-                    posx: 0,
-                    posy: 0,
-                    posz: -6,
-                    meshmat: bumperMaterial
-                },
-                p: {
-                    modelpath: 'models/',
-                    modelfile: 'bumper.gltf',
-                    size: 1,
-                    smooth: 1,
-                    posx: -3,
-                    posy: 0,
-                    posz: -10,
-                    meshmat: bumperMaterial
-                },
-                q: {
-                    modelpath: 'models/',
-                    modelfile: 'bumper.gltf',
-                    size: 1,
-                    smooth: 1,
-                    posx: 3,
-                    posy: 0,
-                    posz: -10,
-                    meshmat: bumperMaterial
-                },
-                r: {
-                    modelpath: 'models/',
-                    modelfile: 'launch_divider_left.gltf',
-                    size: 1,
-                    smooth: 1,
-                    posx: -9.75,
-                    posy: 0,
-                    posz: -2,
-                    meshmat: groundMaterial
-                },
-                s: {
-                    modelpath: 'models/',
-                    modelfile: 'slingshot_left.gltf',
-                    size: 1,
-                    smooth: 1,
-                    posx: -5,
-                    posy: 0,
-                    posz: 7,
-                    meshmat: slingshotMaterial
-                },
-                t: {
-                    modelpath: 'models/',
-                    modelfile: 'slingshot_right.gltf',
-                    size: 1,
-                    smooth: 1,
-                    posx: 3.5,
-                    posy: 0,
-                    posz: 7,
-                    meshmat: slingshotMaterial
-                },
-                u: {
-                    modelpath: 'models/',
-                    modelfile: 'return_lane_bottom_left.gltf',
-                    size: 1,
-                    smooth: 1,
-                    posx: -5.5,
-                    posy: 0,
-                    posz: 10.5,
-                    meshmat: groundMaterial
-                },
-                v: {
-                    modelpath: 'models/',
-                    modelfile: 'return_lane_top_left.gltf',
-                    size: 1,
-                    smooth: 1,
-                    posx: -6.90,
-                    posy: 0,
-                    posz: 6.95,
-                    meshmat: groundMaterial
-                },
-                w: {
-                    modelpath: 'models/',
-                    modelfile: 'plate.gltf',
-                    size: 1,
-                    smooth: 1,
-                    posx: -2,
-                    posy: -1,
-                    posz: 18,
-                    meshmat: groundMaterial
-                },
-                x: {
-                    modelpath: 'models/',
-                    modelfile: 'return_lane_bottom_right.gltf',
-                    size: 1, 
-                    smooth: 1,
-                    posx: 4,
-                    posy: 0,
-                    posz: 10.5,
-                    meshmat: groundMaterial
-                },
-                y: {
-                    modelpath: 'models/',
-                    modelfile: 'return_lane_top_right.gltf',
-                    size: 1,
-                    smooth: 1,
-                    posx: 5.40,
-                    posy: 0,
-                    posz: 6.95,
-                    meshmat: groundMaterial
-                },
-                z: {
-                    modelpath: 'models/',
-                    modelfile: 'corner_left.gltf',
-                    size: 1,
-                    smooth: 1,
-                    posx: -9.25,
-                    posy: 0,
-                    posz: -15,
-                    meshmat: groundMaterial
-                },
-            };
+            const response = await fetch('gltflist.json');
+            const data = await response.text();
+            let gltflist = JSON.parse(data);
             
             let models = {};
 
@@ -341,7 +78,7 @@
                 mass = 1;
                 body = new CANNON.Body({
                     mass: 5,
-                    material: mat,
+                    material: cannonMaterials["mat"],
                     position: new CANNON.Vec3(9.25, 0, 0) // m
                 });
                 
@@ -353,7 +90,7 @@
                 // Create a plane
                 const groundBody = new CANNON.Body({
                     mass: 0,
-                    material: groundMaterial // mass == 0 makes the body static
+                    material: cannonMaterials["groundMaterial"] // mass == 0 makes the body static
                 });
                 const groundShape = new CANNON.Plane();
                 groundBody.addShape(groundShape);
@@ -534,10 +271,11 @@
                     }
                     
                     shape = new CANNON.ConvexPolyhedron(vertices, faces);
+                    
 //                    
                     let gltfBody = new CANNON.Body({
                         mass: 0, // mass == 0 makes the body static
-                        material: meshmat,
+                        material: cannonMaterials[meshmat],
                         position: new CANNON.Vec3(posx, posy, posz) // m
                     });
 //                    const groundShape = new CANNON.Plane();
