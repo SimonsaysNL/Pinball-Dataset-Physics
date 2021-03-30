@@ -34,7 +34,7 @@
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
-![](pinball-physics.PNG)
+![](pinball-physics-prototype.png)
 
 Pinball machine prototype created with Cannon.js
 
