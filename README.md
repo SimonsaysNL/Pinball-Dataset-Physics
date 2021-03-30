@@ -42,7 +42,7 @@ Pinball machine created with Cannon.js
 
 * [Threejs](https://threejs.org/)
 * [Cannon.js](https://github.com/schteppe/cannon.js)
-* [GSAP](https://greensock.com/gsap/)
+* ~~[GSAP](https://greensock.com/gsap/)~~ (Removed for now)
 * [Blender](https://www.blender.org/)
 
 
