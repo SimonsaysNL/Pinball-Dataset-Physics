@@ -9,32 +9,31 @@
 
 	<body>
         
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.5.1/gsap.min.js"></script>
+<!--        <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.5.1/gsap.min.js"></script>-->
         
-		<div id="info">
-			<a href="https://threejs.org" target="_blank" rel="noopener">three.js</a> - Pinball physics<br />
-			Space - launch ball, z - left flipper, / - right flipper
-		</div>
+        
+        <div id="info">
+            <a href="https://threejs.org" target="_blank" rel="noopener">three.js</a> - Pinball physics<br />
+            Space - launch ball, z - left flipper, / - right flipper
+        </div>
 
-		<script type="module">
+        <script type="module">
 
-			import * as THREE from '../build/three.module.js';
+            import * as THREE from '../build/three.module.js';
             import { GLTFLoader } from './jsm/loaders/GLTFLoader.js';
             import { GUI } from './jsm/libs/dat.gui.module.js';
-			import Stats from './jsm/libs/stats.module.js';
-			import { OrbitControls } from './jsm/controls/OrbitControls.js';
+            import Stats from './jsm/libs/stats.module.js';
+            import { OrbitControls } from './jsm/controls/OrbitControls.js';
             import { BufferGeometryUtils } from './jsm/utils/BufferGeometryUtils.js';
-            import '../build/cannon.js';
+            //import '../build/cannon.js';
+            import '../build/bllem-cannon.js';
 
-			let camera, scene, renderer, world, mass, body, shape, timeStep=1/60, geometry, material, mesh;
+            let camera, scene, renderer, world, mass, body, shape, geometry, material, mesh, flipperleft, flipperright, field, bumperleft, bumperright, object;
             
-            let flipperleft;
-            let flipperright;
-            let field;
-            let bumperleft;
-            let bumperright;
-            let object;
+            const timeStep = 1/120;
             
+            var clock = new THREE.Clock();
+
             const manager = new THREE.LoadingManager();
             
             let loadingDone = false;
@@ -43,557 +42,66 @@
             
             let balls = {};
             let ballscount = 0;
-            
             let balllaunched = true;
             
             let bodies = {}
             
-            var mat = new CANNON.Material();
-            var groundMaterial = new CANNON.Material();
-            var bumperMaterial = new CANNON.Material();
-            var slingshotMaterial = new CANNON.Material();
+            const cannonMaterials = {};
             
-            var mat_ground = new CANNON.ContactMaterial(groundMaterial, mat, { friction: 0.0, restitution: 0.2 });
-            var mat_bumper = new CANNON.ContactMaterial(bumperMaterial, mat, { friction: 0.0, restitution: 1.5 });
-            var mat_slingshot = new CANNON.ContactMaterial(slingshotMaterial, mat, { friction: 0.0, restitution: 1.5 });
+            cannonMaterials["mat"] = new CANNON.Material();
+            cannonMaterials["groundMaterial"] = new CANNON.Material();
+            cannonMaterials["bumperMaterial"] = new CANNON.Material();
+            cannonMaterials["slingshotMaterial"] = new CANNON.Material();
+            
+            const mat_ground = new CANNON.ContactMaterial(cannonMaterials["groundMaterial"], cannonMaterials["mat"], { friction: 0.0, restitution: 0.2 });
+            const mat_bumper = new CANNON.ContactMaterial(cannonMaterials["bumperMaterial"], cannonMaterials["mat"], { friction: 0.0, restitution: 1.5 });
+            const mat_slingshot = new CANNON.ContactMaterial(cannonMaterials["slingshotMaterial"], cannonMaterials["mat"], { friction: 0.0, restitution: 1.5 });
+            const mat_flipper = new CANNON.ContactMaterial(cannonMaterials["flipperMaterial"], cannonMaterials["mat"], { friction: 0.0, restitution: 1.5 });
             
             const matStdObjects = new THREE.MeshLambertMaterial({color: 0xffffff});
             
-            let gltflist = { 
-                a: {
-                    modelpath: 'models/', //filepath
-                    modelfile: 'cube.gltf',   //file
-                    color: 0xff0000,            //lightsaber color
-                    from: -20,                  //saber movement from x
-                    to: 20,                     //saber movement to x
-                    yfrom:0,                    //saber movement from y
-                    yto:0,                      //saber movement to y
-                    rotfrom:0,                  //saber rotation from
-                    rotto:0,                    //saber rotation to
-                    size: 1,                  //model size
-                    smooth: 1,                  //model smoothing on (1) or off (0)
-                    time: 1,                    //tl segment time
-                    transition: 0,              //transition time offset from end
-                    speed: 1,                   //lightsaber movement speed
-                    posx: 9,                    //position on x
-                    posy: 0,                    //position on y
-                    posz: 19,                     //position on z
-                    meshmat: groundMaterial
-                    
-                },
-                b: {
-                    modelpath: 'models/', //filepath
-                    modelfile: 'field-bottom-top.gltf',   //file
-                    color: 0xff0000,            //lightsaber color
-                    from: -20,                  //saber movement from x
-                    to: 20,                     //saber movement to x
-                    yfrom:0,                    //saber movement from y
-                    yto:0,                      //saber movement to y
-                    rotfrom:0,                  //saber rotation from
-                    rotto:0,                    //saber rotation to
-                    size: 1,                  //model size
-                    smooth: 1,                  //model smoothing on (1) or off (0)
-                    time: 1,                    //tl segment time
-                    transition: 0,              //transition time offset from end
-                    speed: 1,                   //lightsaber movement speed
-                    posx: -2,                    //position on x
-                    posy: 0,                  //position on y
-                    posz: 19,                     //position on z
-                    meshmat: groundMaterial
-                },
-                c: {
-                    modelpath: 'models/', //filepath
-                    modelfile: 'paddle.gltf',   //file
-                    color: 0xff0000,            //lightsaber color
-                    from: -20,                  //saber movement from x
-                    to: 20,                     //saber movement to x
-                    yfrom:0,                    //saber movement from y
-                    yto:0,                      //saber movement to y
-                    rotfrom:0,                  //saber rotation from
-                    rotto:0,                    //saber rotation to
-                    size: 1,                  //model size
-                    smooth: 1,                  //model smoothing on (1) or off (0)
-                    time: 1,                    //tl segment time
-                    transition: 0,              //transition time offset from end
-                    speed: 1,                   //lightsaber movement speed
-                    posx: -3.5,                    //position on x
-                    posy: 0,                  //position on y
-                    posz: 12.5,                     //position on z
-                    meshmat: groundMaterial
-                },
-                d: {
-                    modelpath: 'models/', //filepath
-                    modelfile: 'field-side.gltf',   //file
-                    color: 0xff0000,            //lightsaber color
-                    from: -20,                  //saber movement from x
-                    to: 20,                     //saber movement to x
-                    yfrom:0,                    //saber movement from y
-                    yto:0,                      //saber movement to y
-                    rotfrom:0,                  //saber rotation from
-                    rotto:0,                    //saber rotation to
-                    size: 1,                  //model size
-                    smooth: 1,                  //model smoothing on (1) or off (0)
-                    time: 1,                    //tl segment time
-                    transition: 0,              //transition time offset from end
-                    speed: 1,                   //lightsaber movement speed
-                    posx: -11,                    //position on x
-                    posy: 0,                  //position on y
-                    posz: 0,                     //position on z
-                    meshmat: groundMaterial
-                },
-                e: {
-                    modelpath: 'models/', //filepath
-                    modelfile: 'field-bottom-top.gltf',   //file
-                    color: 0xff0000,            //lightsaber color
-                    from: -20,                  //saber movement from x
-                    to: 20,                     //saber movement to x
-                    yfrom:0,                    //saber movement from y
-                    yto:0,                      //saber movement to y
-                    rotfrom:0,                  //saber rotation from
-                    rotto:0,                    //saber rotation to
-                    size: 1,                  //model size
-                    smooth: 1,                  //model smoothing on (1) or off (0)
-                    time: 1,                    //tl segment time
-                    transition: 0,              //transition time offset from end
-                    speed: 1,                   //lightsaber movement speed
-                    posx: 0,                    //position on x
-                    posy: 0,                  //position on y
-                    posz: -17,                     //position on z
-                    meshmat: groundMaterial
-                },
-                f: {
-                    modelpath: 'models/', //filepath
-                    modelfile: 'field-side.gltf',   //file
-                    color: 0xff0000,            //lightsaber color
-                    from: -20,                  //saber movement from x
-                    to: 20,                     //saber movement to x
-                    yfrom:0,                    //saber movement from y
-                    yto:0,                      //saber movement to y
-                    rotfrom:0,                  //saber rotation from
-                    rotto:0,                    //saber rotation to
-                    size: 1,                  //model size
-                    smooth: 1,                  //model smoothing on (1) or off (0)
-                    time: 1,                    //tl segment time
-                    transition: 0,              //transition time offset from end
-                    speed: 1,                   //lightsaber movement speed
-                    posx: 11,                    //position on x
-                    posy: 0,                  //position on y
-                    posz: 0,                     //position on z
-                    meshmat: groundMaterial
-                },
-                g: {
-                    modelpath: 'models/', //filepath
-                    modelfile: 'field-floor.gltf',   //file
-                    color: 0xff0000,            //lightsaber color
-                    from: -20,                  //saber movement from x
-                    to: 20,                     //saber movement to x
-                    yfrom:0,                    //saber movement from y
-                    yto:0,                      //saber movement to y
-                    rotfrom:0,                  //saber rotation from
-                    rotto:0,                    //saber rotation to
-                    size: 1,                  //model size
-                    smooth: 1,                  //model smoothing on (1) or off (0)
-                    time: 1,                    //tl segment time
-                    transition: 0,              //transition time offset from end
-                    speed: 1,                   //lightsaber movement speed
-                    posx: 0,                    //position on x
-                    posy: -2,                  //position on y
-                    posz: 0,                     //position on z
-                    meshmat: groundMaterial
-                },
-                h: {
-                    modelpath: 'models/', //filepath
-                    modelfile: 'paddle.gltf',   //file
-                    color: 0xff0000,            //lightsaber color
-                    from: -20,                  //saber movement from x
-                    to: 20,                     //saber movement to x
-                    yfrom:0,                    //saber movement from y
-                    yto:0,                      //saber movement to y
-                    rotfrom:0,                  //saber rotation from
-                    rotto:0,                    //saber rotation to
-                    size: 1,                  //model size
-                    smooth: 1,                  //model smoothing on (1) or off (0)
-                    time: 1,                    //tl segment time
-                    transition: 0,              //transition time offset from end
-                    speed: 1,                   //lightsaber movement speed
-                    posx: 2,                    //position on x
-                    posy: 0,                  //position on y
-                    posz: 12.5,                     //position on z
-                    meshmat: groundMaterial
-                },
-                i: {
-                    modelpath: 'models/', //filepath
-                    modelfile: 'bottom_left.gltf',   //file
-                    color: 0xff0000,            //lightsaber color
-                    from: -20,                  //saber movement from x
-                    to: 20,                     //saber movement to x
-                    yfrom:0,                    //saber movement from y
-                    yto:0,                      //saber movement to y
-                    rotfrom:0,                  //saber rotation from
-                    rotto:0,                    //saber rotation to
-                    size: 1,                  //model size
-                    smooth: 1,                  //model smoothing on (1) or off (0)
-                    time: 1,                    //tl segment time
-                    transition: 0,              //transition time offset from end
-                    speed: 1,                   //lightsaber movement speed
-                    posx: -8,                    //position on x
-                    posy: 0,                  //position on y
-                    posz: 13,                     //position on z
-                    meshmat: groundMaterial
-                },
-                j: {
-                    modelpath: 'models/', //filepath
-                    modelfile: 'bottom_right.gltf',   //file
-                    color: 0xff0000,            //lightsaber color
-                    from: -20,                  //saber movement from x
-                    to: 20,                     //saber movement to x
-                    yfrom:0,                    //saber movement from y
-                    yto:0,                      //saber movement to y
-                    rotfrom:0,                  //saber rotation from
-                    rotto:0,                    //saber rotation to
-                    size: 1,                  //model size
-                    smooth: 1,                  //model smoothing on (1) or off (0)
-                    time: 1,                    //tl segment time
-                    transition: 0,              //transition time offset from end
-                    speed: 1,                   //lightsaber movement speed
-                    posx: 6,                    //position on x
-                    posy: 0,                  //position on y
-                    posz: 13,                     //position on z
-                    meshmat: groundMaterial
-                },
-                k: {
-                    modelpath: 'models/', //filepath
-                    modelfile: 'launch_divider.gltf',   //file
-                    color: 0xff0000,            //lightsaber color
-                    from: -20,                  //saber movement from x
-                    to: 20,                     //saber movement to x
-                    yfrom:0,                    //saber movement from y
-                    yto:0,                      //saber movement to y
-                    rotfrom:0,                  //saber rotation from
-                    rotto:0,                    //saber rotation to
-                    size: 1,                  //model size
-                    smooth: 1,                  //model smoothing on (1) or off (0)
-                    time: 1,                    //tl segment time
-                    transition: 0,              //transition time offset from end
-                    speed: 1,                   //lightsaber movement speed
-                    posx: 7.75,                    //position on x
-                    posy: 0,                  //position on y
-                    posz: 0,                     //position on z
-                    meshmat: groundMaterial
-                },
-                l: {
-                    modelpath: 'models/', //filepath
-                    modelfile: 'drain_ramp.gltf',   //file
-                    color: 0xff0000,            //lightsaber color
-                    from: -20,                  //saber movement from x
-                    to: 20,                     //saber movement to x
-                    yfrom:0,                    //saber movement from y
-                    yto:0,                      //saber movement to y
-                    rotfrom:0,                  //saber rotation from
-                    rotto:0,                    //saber rotation to
-                    size: 1,                  //model size
-                    smooth: 1,                  //model smoothing on (1) or off (0)
-                    time: 1,                    //tl segment time
-                    transition: 0,              //transition time offset from end
-                    speed: 1,                   //lightsaber movement speed
-                    posx: -0.25,                    //position on x
-                    posy: 0,                  //position on y
-                    posz: 17.5,                    //position on z
-                    meshmat: groundMaterial
-                },
-                m: {
-                    modelpath: 'models/', //filepath
-                    modelfile: 'drain_cube.gltf',   //file
-                    color: 0xff0000,            //lightsaber color
-                    from: -20,                  //saber movement from x
-                    to: 20,                     //saber movement to x
-                    yfrom:0,                    //saber movement from y
-                    yto:0,                      //saber movement to y
-                    rotfrom:0,                  //saber rotation from
-                    rotto:0,                    //saber rotation to
-                    size: 1,                  //model size
-                    smooth: 1,                  //model smoothing on (1) or off (0)
-                    time: 1,                    //tl segment time
-                    transition: 0,              //transition time offset from end
-                    speed: 1,                   //lightsaber movement speed
-                    posx: -2.75,                    //position on x
-                    posy: 0,                  //position on y
-                    posz: 16.5,                    //position on z
-                    meshmat: groundMaterial
-                },
-                n: {
-                    modelpath: 'models/', //filepath
-                    modelfile: 'launch_ramp.gltf',   //file
-                    color: 0xff0000,            //lightsaber color
-                    from: -20,                  //saber movement from x
-                    to: 20,                     //saber movement to x
-                    yfrom:0,                    //saber movement from y
-                    yto:0,                      //saber movement to y
-                    rotfrom:0,                  //saber rotation from
-                    rotto:0,                    //saber rotation to
-                    size: 1,                  //model size
-                    smooth: 1,                  //model smoothing on (1) or off (0)
-                    time: 1,                    //tl segment time
-                    transition: 0,              //transition time offset from end
-                    speed: 1,                   //lightsaber movement speed
-                    posx: 9.35,                    //position on x
-                    posy: 0,                  //position on y
-                    posz: -15.35,                    //position on z
-                    meshmat: groundMaterial
-                },
-                o: {
-                    modelpath: 'models/', //filepath
-                    modelfile: 'bumper.gltf',   //file
-                    color: 0xff0000,            //lightsaber color
-                    from: -20,                  //saber movement from x
-                    to: 20,                     //saber movement to x
-                    yfrom:0,                    //saber movement from y
-                    yto:0,                      //saber movement to y
-                    rotfrom:0,                  //saber rotation from
-                    rotto:0,                    //saber rotation to
-                    size: 1,                  //model size
-                    smooth: 1,                  //model smoothing on (1) or off (0)
-                    time: 1,                    //tl segment time
-                    transition: 0,              //transition time offset from end
-                    speed: 1,                   //lightsaber movement speed
-                    posx: 0,                    //position on x
-                    posy: 0,                  //position on y
-                    posz: -6,                   //position on z
-                    meshmat: bumperMaterial
-                },
-                p: {
-                    modelpath: 'models/', //filepath
-                    modelfile: 'bumper.gltf',   //file
-                    color: 0xff0000,            //lightsaber color
-                    from: -20,                  //saber movement from x
-                    to: 20,                     //saber movement to x
-                    yfrom:0,                    //saber movement from y
-                    yto:0,                      //saber movement to y
-                    rotfrom:0,                  //saber rotation from
-                    rotto:0,                    //saber rotation to
-                    size: 1,                  //model size
-                    smooth: 1,                  //model smoothing on (1) or off (0)
-                    time: 1,                    //tl segment time
-                    transition: 0,              //transition time offset from end
-                    speed: 1,                   //lightsaber movement speed
-                    posx: -3,                    //position on x
-                    posy: 0,                  //position on y
-                    posz: -10,                   //position on z
-                    meshmat: bumperMaterial
-                },
-                q: {
-                    modelpath: 'models/', //filepath
-                    modelfile: 'bumper.gltf',   //file
-                    color: 0xff0000,            //lightsaber color
-                    from: -20,                  //saber movement from x
-                    to: 20,                     //saber movement to x
-                    yfrom:0,                    //saber movement from y
-                    yto:0,                      //saber movement to y
-                    rotfrom:0,                  //saber rotation from
-                    rotto:0,                    //saber rotation to
-                    size: 1,                  //model size
-                    smooth: 1,                  //model smoothing on (1) or off (0)
-                    time: 1,                    //tl segment time
-                    transition: 0,              //transition time offset from end
-                    speed: 1,                   //lightsaber movement speed
-                    posx: 3,                    //position on x
-                    posy: 0,                  //position on y
-                    posz: -10,                   //position on z
-                    meshmat: bumperMaterial
-                },
-                r: {
-                    modelpath: 'models/', //filepath
-                    modelfile: 'launch_divider_left.gltf',   //file
-                    color: 0xff0000,            //lightsaber color
-                    from: -20,                  //saber movement from x
-                    to: 20,                     //saber movement to x
-                    yfrom:0,                    //saber movement from y
-                    yto:0,                      //saber movement to y
-                    rotfrom:0,                  //saber rotation from
-                    rotto:0,                    //saber rotation to
-                    size: 1,                  //model size
-                    smooth: 1,                  //model smoothing on (1) or off (0)
-                    time: 1,                    //tl segment time
-                    transition: 0,              //transition time offset from end
-                    speed: 1,                   //lightsaber movement speed
-                    posx: -9.75,                    //position on x
-                    posy: 0,                  //position on y
-                    posz: -2,                     //position on z
-                    meshmat: groundMaterial
-                },
-                s: {
-                    modelpath: 'models/', //filepath
-                    modelfile: 'slingshot_left.gltf',   //file
-                    color: 0xff0000,            //lightsaber color
-                    from: -20,                  //saber movement from x
-                    to: 20,                     //saber movement to x
-                    yfrom:0,                    //saber movement from y
-                    yto:0,                      //saber movement to y
-                    rotfrom:0,                  //saber rotation from
-                    rotto:0,                    //saber rotation to
-                    size: 1,                  //model size
-                    smooth: 1,                  //model smoothing on (1) or off (0)
-                    time: 1,                    //tl segment time
-                    transition: 0,              //transition time offset from end
-                    speed: 1,                   //lightsaber movement speed
-                    posx: -5,                    //position on x
-                    posy: 0,                  //position on y
-                    posz: 7,                     //position on z
-                    meshmat: slingshotMaterial
-                },
-                t: {
-                    modelpath: 'models/', //filepath
-                    modelfile: 'slingshot_right.gltf',   //file
-                    color: 0xff0000,            //lightsaber color
-                    from: -20,                  //saber movement from x
-                    to: 20,                     //saber movement to x
-                    yfrom:0,                    //saber movement from y
-                    yto:0,                      //saber movement to y
-                    rotfrom:0,                  //saber rotation from
-                    rotto:0,                    //saber rotation to
-                    size: 1,                  //model size
-                    smooth: 1,                  //model smoothing on (1) or off (0)
-                    time: 1,                    //tl segment time
-                    transition: 0,              //transition time offset from end
-                    speed: 1,                   //lightsaber movement speed
-                    posx: 3.5,                    //position on x
-                    posy: 0,                  //position on y
-                    posz: 7,                     //position on z
-                    meshmat: slingshotMaterial
-                },
-                u: {
-                    modelpath: 'models/', //filepath
-                    modelfile: 'return_lane_bottom_left.gltf',   //file
-                    color: 0xff0000,            //lightsaber color
-                    from: -20,                  //saber movement from x
-                    to: 20,                     //saber movement to x
-                    yfrom:0,                    //saber movement from y
-                    yto:0,                      //saber movement to y
-                    rotfrom:0,                  //saber rotation from
-                    rotto:0,                    //saber rotation to
-                    size: 1,                  //model size
-                    smooth: 1,                  //model smoothing on (1) or off (0)
-                    time: 1,                    //tl segment time
-                    transition: 0,              //transition time offset from end
-                    speed: 1,                   //lightsaber movement speed
-                    posx: -5.5,                    //position on x
-                    posy: 0,                  //position on y
-                    posz: 10.5,                     //position on z
-                    meshmat: groundMaterial
-                },
-                v: {
-                    modelpath: 'models/', //filepath
-                    modelfile: 'return_lane_top_left.gltf',   //file
-                    color: 0xff0000,            //lightsaber color
-                    from: -20,                  //saber movement from x
-                    to: 20,                     //saber movement to x
-                    yfrom:0,                    //saber movement from y
-                    yto:0,                      //saber movement to y
-                    rotfrom:0,                  //saber rotation from
-                    rotto:0,                    //saber rotation to
-                    size: 1,                  //model size
-                    smooth: 1,                  //model smoothing on (1) or off (0)
-                    time: 1,                    //tl segment time
-                    transition: 0,              //transition time offset from end
-                    speed: 1,                   //lightsaber movement speed
-                    posx: -6.90,                    //position on x
-                    posy: 0,                  //position on y
-                    posz: 6.95,                     //position on z
-                    meshmat: groundMaterial
-                },
-                w: {
-                    modelpath: 'models/', //filepath
-                    modelfile: 'plate.gltf',   //file
-                    color: 0xff0000,            //lightsaber color
-                    from: -20,                  //saber movement from x
-                    to: 20,                     //saber movement to x
-                    yfrom:0,                    //saber movement from y
-                    yto:0,                      //saber movement to y
-                    rotfrom:0,                  //saber rotation from
-                    rotto:0,                    //saber rotation to
-                    size: 1,                  //model size
-                    smooth: 1,                  //model smoothing on (1) or off (0)
-                    time: 1,                    //tl segment time
-                    transition: 0,              //transition time offset from end
-                    speed: 1,                   //lightsaber movement speed
-                    posx: -2,                    //position on x
-                    posy: -1,                  //position on y
-                    posz: 18,                     //position on z
-                    meshmat: groundMaterial
-                },
-                x: {
-                    modelpath: 'models/', //filepath
-                    modelfile: 'return_lane_bottom_right.gltf',   //file
-                    color: 0xff0000,            //lightsaber color
-                    from: -20,                  //saber movement from x
-                    to: 20,                     //saber movement to x
-                    yfrom:0,                    //saber movement from y
-                    yto:0,                      //saber movement to y
-                    rotfrom:0,                  //saber rotation from
-                    rotto:0,                    //saber rotation to
-                    size: 1,                  //model size
-                    smooth: 1,                  //model smoothing on (1) or off (0)
-                    time: 1,                    //tl segment time
-                    transition: 0,              //transition time offset from end
-                    speed: 1,                   //lightsaber movement speed
-                    posx: 4,                    //position on x
-                    posy: 0,                  //position on y
-                    posz: 10.5,                     //position on z
-                    meshmat: groundMaterial
-                },
-                y: {
-                    modelpath: 'models/', //filepath
-                    modelfile: 'return_lane_top_right.gltf',   //file
-                    color: 0xff0000,            //lightsaber color
-                    from: -20,                  //saber movement from x
-                    to: 20,                     //saber movement to x
-                    yfrom:0,                    //saber movement from y
-                    yto:0,                      //saber movement to y
-                    rotfrom:0,                  //saber rotation from
-                    rotto:0,                    //saber rotation to
-                    size: 1,                  //model size
-                    smooth: 1,                  //model smoothing on (1) or off (0)
-                    time: 1,                    //tl segment time
-                    transition: 0,              //transition time offset from end
-                    speed: 1,                   //lightsaber movement speed
-                    posx: 5.40,                    //position on x
-                    posy: 0,                  //position on y
-                    posz: 6.95,                     //position on z
-                    meshmat: groundMaterial
-                },
-                z: {
-                    modelpath: 'models/', //filepath
-                    modelfile: 'corner_left.gltf',   //file
-                    color: 0xff0000,            //lightsaber color
-                    from: -20,                  //saber movement from x
-                    to: 20,                     //saber movement to x
-                    yfrom:0,                    //saber movement from y
-                    yto:0,                      //saber movement to y
-                    rotfrom:0,                  //saber rotation from
-                    rotto:0,                    //saber rotation to
-                    size: 1,                  //model size
-                    smooth: 1,                  //model smoothing on (1) or off (0)
-                    time: 1,                    //tl segment time
-                    transition: 0,              //transition time offset from end
-                    speed: 1,                   //lightsaber movement speed
-                    posx: -9.25,                    //position on x
-                    posy: 0,                  //position on y
-                    posz: -15,                     //position on z
-                    meshmat: groundMaterial
-                },
-            };
+            const response = await fetch('gltflist.json');
+            const data = await response.text();
+            let gltflist = JSON.parse(data);
             
             let models = {};
+            
+            var c;
+            var h;
+            
+            flipperleft = {
+                max: 22.5,
+                min: -10,
+                current: 0,
+                speed: 0,
+                currentspeed: 0
+            }
+            
+            flipperright = {
+                max: -60,
+                min: -57,
+                current: 0,
+                speed: 0,
+                currentspeed: 0,
+                lastspeed: 0,
+                startpoint: 0,
+                pointdiff: 0
+            }
+            
+            let zpressed = false;
+            let slashpressed = false;
+            
+            const stats = new Stats();
+            document.body.appendChild( stats.dom );
 
 			init();
             initCannon();
-            createBall();
-            animate();
+            gameLoop();
             
             function initCannon() {
                 
-                var radius = 0.5; // m
-                var damping = 0.01;
+                const radius = 0.5; // m
+                const damping = 0.01;
 
                 world = new CANNON.World();
                 world.gravity.set(0, -30, 9.82); // m/s²
@@ -604,8 +112,10 @@
                 mass = 1;
                 body = new CANNON.Body({
                     mass: 5,
-                    material: mat,
-                    position: new CANNON.Vec3(9.25, 0, 0) // m
+                    material: cannonMaterials["mat"],
+                    ccdSpeedThreshold: 0,
+                    //position: new CANNON.Vec3(9.25, 0, 0) // m
+                    position: new CANNON.Vec3(-2, 0, 0) // m
                 });
                 
                 body.addShape(shape);
@@ -614,71 +124,79 @@
                 world.addBody(body);
                 
                 // Create a plane
-                var groundBody = new CANNON.Body({
+                const groundBody = new CANNON.Body({
                     mass: 0,
-                    material: groundMaterial // mass == 0 makes the body static
+                    material: cannonMaterials["groundMaterial"] // mass == 0 makes the body static
                 });
-                var groundShape = new CANNON.Plane();
+                const groundShape = new CANNON.Plane();
                 groundBody.addShape(groundShape);
                 //world.addBody(groundBody);
                 
                 world.addContactMaterial(mat_ground);
                 world.addContactMaterial(mat_bumper);
+                
+                createBall();
+                animate();
 
-          }
+            }
 
-			function init() {
+            function init() {
 
-				const container = document.createElement( 'div' );
-				document.body.appendChild( container );
+                const container = document.createElement( 'div' );
+                document.body.appendChild( container );
 
-				camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
-				camera.position.set( 0, 30, 10 );
+                camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
+                camera.position.set( 0, 30, 10 );
 
-				scene = new THREE.Scene();
+                scene = new THREE.Scene();
                 scene.background = new THREE.Color( 0xffffff );
                 
                 const light = new THREE.AmbientLight( 0x404040 ); // soft white light
                 //scene.add( light );
                 
-                var spotLight = new THREE.SpotLight( 0xffffff,1 );
+                const spotLight = new THREE.SpotLight( 0xffffff,1 );
                 spotLight.position.set( 0, 20, -50 );
                 scene.add( spotLight );
                 
                 checkLoaded();
                 
                 Object.keys(gltflist).forEach(key => {                   
-                    loaded[key] = new loadmodel(gltflist[key].modelpath, gltflist[key].modelfile, gltflist[key].size, gltflist[key].smooth, key, gltflist[key].posx, gltflist[key].posy, gltflist[key].posz, gltflist[key].meshmat);
+                    loaded[key] = new loadmodel(gltflist[key].modelpath, gltflist[key].modelfile, gltflist[key].size, gltflist[key].smooth, key, gltflist[key].posx, gltflist[key].posy, gltflist[key].posz, gltflist[key].rotation, gltflist[key].meshmat, gltflist[key].mass);
                 });
 
-				renderer = new THREE.WebGLRenderer( { antialias: true } );
-				renderer.setPixelRatio( window.devicePixelRatio );
-				renderer.setSize( window.innerWidth, window.innerHeight );
-				renderer.toneMapping = THREE.ACESFilmicToneMapping;
-				renderer.toneMappingExposure = 1;
-				renderer.outputEncoding = THREE.sRGBEncoding;
-				container.appendChild( renderer.domElement );
+                renderer = new THREE.WebGLRenderer( { antialias: true } );
+                renderer.setPixelRatio( window.devicePixelRatio );
+                renderer.setSize( window.innerWidth, window.innerHeight );
+                renderer.toneMapping = THREE.ACESFilmicToneMapping;
+                renderer.toneMappingExposure = 1;
+                renderer.outputEncoding = THREE.sRGBEncoding;
+                container.appendChild( renderer.domElement );
 
-				const pmremGenerator = new THREE.PMREMGenerator( renderer );
-				pmremGenerator.compileEquirectangularShader();
-
-				const controls = new OrbitControls( camera, renderer.domElement );
-				controls.addEventListener( 'change', render ); // use if there is no animation loop
-				controls.minDistance = 2;
-				controls.maxDistance = 40;
-				controls.target.set( 0, 0, 0 );
-				controls.update();
+                const controls = new OrbitControls( camera, renderer.domElement );
+                controls.addEventListener( 'change', render ); // use if there is no animation loop
+                controls.minDistance = 2;
+                controls.maxDistance = 40;
+                controls.target.set( 0, 0, 0 );
+                controls.update();
 
 				window.addEventListener( 'resize', onWindowResize );
                 window.addEventListener("keydown", event => {
-                    console.log(event.keyCode);
+                    //console.log(event.keyCode);
                     if (event.isComposing || event.keyCode === 90) {
-                        console.log("z");
-                        gsap.to(qrotleft.rotation, 0.1, {y: 45, ease:Linear.easeNone});
+                        if (!zpressed){
+//                            console.log("keydown: z");
+//                            console.log("flipper left current y:" + Math.round(THREE.Math.radToDeg(bodies.c.quaternion.y)));
+                            flipperleft.speed = -14;
+                            zpressed = true;
+                        }
                     }
                     if (event.isComposing || event.keyCode === 191) {
-                        console.log("/");
-                        gsap.to(qrotright.rotation, 0.1, {y: 135,  ease:Linear.easeNone});
+                        if (!slashpressed){
+                            console.log("keydown: /");
+                            console.log("flipper right current y:" + Math.round(THREE.Math.radToDeg(bodies.h.quaternion.y)));
+                            flipperright.speed = 14;
+                            slashpressed = true;
+                        }
                     }
                     if (event.isComposing || event.keyCode === 32) {
                         console.log("space");
@@ -692,14 +210,16 @@
                     
                 });
                 window.addEventListener("keyup", event => {
-                    console.log(event.keyCode);
+                    //console.log(event.keyCode);
                     if (event.isComposing || event.keyCode === 90) {
-                        console.log("z");
-                        gsap.to(qrotleft.rotation, 0.2, {y: -45, ease:Linear.easeNone});
+                        zpressed = false;
+//                        console.log("keyup: z");
+                        flipperleft.speed = 7;
                     }
                     if (event.isComposing || event.keyCode === 191) {
-                        console.log("/");
-                        gsap.to(qrotright.rotation, 0.2, {y: 225,  ease:Linear.easeNone});
+                        slashpressed = false;
+                        console.log("keyup: /");
+                        flipperright.speed = -7;
                     }
 //                    if (event.isComposing || event.keyCode === 32) {
 //                        console.log("space");
@@ -707,11 +227,11 @@
 //                    }
                 });
                 
-                console.log(loaded);
+                //console.log(loaded);
 
 			}
             
-            function loadmodel(modelpath, modelfile, meshsize, smooth, scenekey, posx, posy, posz, meshmat) {
+            function loadmodel(modelpath, modelfile, meshsize, smooth, scenekey, posx, posy, posz, rotation, meshmat, modelmass) {
                 
                 this.smooth = smooth;
                 
@@ -720,6 +240,7 @@
                     
                     this.gltf = gltf;
                     
+                    //For wireframe look
 //                     this.gltf.scene.traverse((node) => {
 //                        if (!node.isMesh) return;
 //                        node.material.wireframe = true;
@@ -752,25 +273,22 @@
 //                    }
                     
                    
-                    var glTFGeometry;
+                    let glTFGeometry;
                     
                     let scale;
                     
-                    // Might be used someday
-                    
-                    //var glTFGeometry = new THREE.BufferGeometry();
+                    // Might be used someday, have to look into bufferGeometry
+                    //let glTFGeometry = new THREE.BufferGeometry();
                     
                     this.gltf.scene.traverse( function ( child ) {
 
                         if ( child.isMesh ) {
-
                             //child.material.envMap = envMap;
                             //Setting the buffer geometry
                             //glTFGeometry = child.geometry;
                             glTFGeometry = new THREE.Geometry().fromBufferGeometry(child.geometry);
                             //console.log(glTFGeometry);
                             scale = child.scale;
-
                         }
 
                     } );
@@ -799,16 +317,17 @@
                     }
                     
                     shape = new CANNON.ConvexPolyhedron(vertices, faces);
-//                    
-                    var gltfBody = new CANNON.Body({
-                        mass: 0, // mass == 0 makes the body static
-                        material: meshmat,
+                    
+                    let gltfBody = new CANNON.Body({
+                        
+                        mass: modelmass,
+                        material: cannonMaterials[meshmat],
                         position: new CANNON.Vec3(posx, posy, posz) // m
                     });
-//                    var groundShape = new CANNON.Plane();
+//                    const groundShape = new CANNON.Plane();
 //                    console.log(glTFGeometry);
 //                    console.log(groundShape);
-                    var gltfShape = glTFGeometry;
+                    const gltfShape = glTFGeometry;
                     gltfBody.addShape(shape);
                     
                     bodies[scenekey] = gltfBody;
@@ -817,32 +336,35 @@
                     this.gltf.scene.castShadow = true;
 				    this.gltf.scene.receiveShadow = true;
 
-//                   this.gltf.scene.scale.set( meshsize, meshsize, meshsize )
-                    positionObject(this.gltf.scene, gltflist[scenekey].posx, gltflist[scenekey].posy, gltflist[scenekey].posz);
+//                  this.gltf.scene.scale.set( meshsize, meshsize, meshsize )
+//                  positionObject(this.gltf.scene, gltflist[scenekey].posx, gltflist[scenekey].posy, gltflist[scenekey].posz);
                     scene.add( this.gltf.scene );
                     
+                    const radians = THREE.Math.degToRad( rotation );
+                    const quaternion = new THREE.Quaternion();
+                    gltfBody.quaternion.setFromAxisAngle( new THREE.Vector3(0,1,0), radians );
+                
                     this.gltf.scene.position.copy(gltfBody.position);
                     this.gltf.scene.quaternion.copy(gltfBody.quaternion);
                     world.addBody(bodies[scenekey]);
                     
-                    
                 }.bind(this));
             }
             
+            //Check if assets loaded
             function checkLoaded() {
-                console.log("checking");
-                //Check if assets loaded
                 manager.onStart = function ( url, itemsLoaded, itemsTotal ) {
-                    console.log( 'Started loading file: ' + url + '.\nLoaded ' + itemsLoaded + ' of ' + itemsTotal + ' files.' );
+                    //console.log( 'Started loading file: ' + url + '.\nLoaded ' + itemsLoaded + ' of ' + itemsTotal + ' files.' );
                 };
 
                 manager.onLoad = function ( ) {
-                    console.log( 'Loading complete!');
+                    //console.log( 'Loading complete!');
                     loadingDone = true;
+                    initFlippers();
                 };
 
                 manager.onProgress = function ( url, itemsLoaded, itemsTotal ) {
-                    console.log( 'Loading file: ' + url + '.\nLoaded ' + itemsLoaded + ' of ' + itemsTotal + ' files.' );
+                    //console.log( 'Loading file: ' + url + '.\nLoaded ' + itemsLoaded + ' of ' + itemsTotal + ' files.' );
                 };
 
                 manager.onError = function ( url ) {
@@ -850,27 +372,57 @@
                 };
             }
             
-            //position object
+            function initFlippers(){
+                flipperHinge();
+                flipperStartPos();
+            }
+            
+            function flipperHinge() {
+                console.log("hinging");
+                //console.log(gltflist);
+                c = new CANNON.HingeConstraint(bodies.g, bodies.c, {
+                    pivotA: new CANNON.Vec3(gltflist.c.posx,gltflist.c.posy, gltflist.c.posz),
+                    axisA: new CANNON.Vec3(0,1,0),
+                    pivotB: new CANNON.Vec3(0,0,0),
+                    axisB: new CANNON.Vec3(0,1,0)
+                });
+                world.addConstraint(c);
+                c.enableMotor();
+                h = new CANNON.HingeConstraint(bodies.g, bodies.h, {
+                    pivotA: new CANNON.Vec3(gltflist.h.posx,gltflist.h.posy, gltflist.h.posz),
+                    axisA: new CANNON.Vec3(0,1,0),
+                    pivotB: new CANNON.Vec3(0,0,0),
+                    axisB: new CANNON.Vec3(0,1,0)
+                });
+                world.addConstraint(h);
+                h.enableMotor();
+
+            }
+            
+            function flipperStartPos(){
+                flipperright.startpoint = Math.round(THREE.Math.radToDeg(bodies.h.quaternion.y));
+            }
+            
+            //Set position object
             function positionObject(object, posX=0, posY=0, posZ=0) {
                 object.translateX(posX);
                 object.translateY(posY);
                 object.translateZ(posZ);
             }
             
-            //creat ball
+            //Create ball
             function createBall() {
                 const geometry = new THREE.SphereGeometry( 0.5, 32, 32 );
                 const material = new THREE.MeshStandardMaterial( { color: 0xffffff, roughness: 0.14, metalness: 1 } );
                 const sphere = new THREE.Mesh( geometry, material );
 //                sphere.translateX(posX);
 //                sphere.translateY(posY);
-                //sphere.translateZ(-13);
+//                sphere.translateZ(-13);
                 scene.add( sphere );
                 balls[ballscount] = sphere; 
                 ballscount++;
-                console.log(balls);
+//                console.log(balls);
                 body.addEventListener("collide",function(e){
-//                  console.log("The sphere just collided with the ground!");
 //                  console.log("Collided with body:",e.body);
 //                  console.log("Contact between bodies:",e.contact);
                     
@@ -879,37 +431,28 @@
                     }
                 });
             }
-
-			function onWindowResize() {
-
-				camera.aspect = window.innerWidth / window.innerHeight;
-				camera.updateProjectionMatrix();
-
-				renderer.setSize( window.innerWidth, window.innerHeight );
-
-				render();
-
-			}
             
-            var qrotleft = {
-                rotation: {
-                    y: -45
-                }
-            };
+            function radians_to_degrees(radians)
+            {
+              var pi = Math.PI;
+              return radians * (180/pi);
+            }
+
+            function onWindowResize() {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize( window.innerWidth, window.innerHeight );
+                render();
+            }
             
-            var qrotright = {
-                rotation: {
-                    y: 225
-                }
-            };
-            
-            var launcher = {
+            let launcher = {
                 position: {
                     y: 19
                 }
             };
 
             function updatePhysics() {
+                //console.log(clock.getDelta());
 
                 // Step the physics world
                 world.step(timeStep);
@@ -917,35 +460,170 @@
                 // Copy coordinates from Cannon.js to Three.js
                 balls[0].position.copy(body.position);
                 balls[0].quaternion.copy(body.quaternion);
-                
+
                 //console.log(bodies);
                 if(loadingDone) {
-                    var qrotdegleft = THREE.Math.degToRad(qrotleft.rotation.y);
-                    var qrotdegright = THREE.Math.degToRad(qrotright.rotation.y);
-                    loaded.c.gltf.scene.quaternion.setFromAxisAngle(new THREE.Vector3(0,1,0),qrotdegleft);
-                    bodies.c.quaternion.setFromAxisAngle(new THREE.Vector3(0,1,0),qrotdegleft);
-                    loaded.h.gltf.scene.quaternion.setFromAxisAngle(new THREE.Vector3(0,1,0),qrotdegright);
-                    bodies.h.quaternion.setFromAxisAngle(new THREE.Vector3(0,1,0),qrotdegright);
-                    loaded.a.gltf.scene.position.z = launcher.position.y;
-                    bodies.a.position.z = launcher.position.y;
+                    loaded.c.gltf.scene.position.copy(bodies.c.position);
+                    loaded.c.gltf.scene.quaternion.copy(bodies.c.quaternion);
+                    loaded.h.gltf.scene.position.copy(bodies.h.position);
+                    loaded.h.gltf.scene.quaternion.copy(bodies.h.quaternion);
+                
+//                    loaded.a.gltf.scene.position.z = launcher.position.y;
+//                    bodies.a.position.z = launcher.position.y;
                 }
 
             }
             
+            function gameLoop() {
+
+                var delta  = clock.getDelta() ;
+                //console.log(delta);
+                
+                var ticks =  Math.round( delta / ( 1 / 120 ) );
+
+                setTimeout( ()=> {
+                    //console.log("gameloop")
+                    updateFlippers();
+                    updatePhysics();
+                    
+                    gameLoop();
+                }, ticks );
+
+
+            };
+            
+            function updateFlippers() {
+                
+                if(loadingDone) {
+                    //setting previous degree 
+                    var lastcurrent;
+                    var nowcurrent = Math.round(flipperright.current);
+                    if (nowcurrent == 0){
+                        lastcurrent = flipperright.startpoint;
+                    }
+                    else {
+                        lastcurrent = nowcurrent;
+                    }
+                    
+                    //getting current degree
+                    flipperleft.current = THREE.Math.radToDeg(bodies.c.quaternion.y);
+                    flipperright.current = THREE.Math.radToDeg(bodies.h.quaternion.y);
+                    
+                    //get current rounded degree
+                    nowcurrent = Math.round(flipperright.current);
+                    
+                    if (nowcurrent !== lastcurrent) {
+//                        console.log("changing");
+//                        console.log("lastcurrent: "+lastcurrent);
+//                        console.log("nowcurrent: "+nowcurrent);
+//                        console.log("lastspeed: "+flipperright.lastspeed);
+                        
+                        if (flipperright.lastspeed > 0) {
+//                            console.log("plus");
+                            flipperright.pointdiff--;
+                        }
+                        if (flipperright.lastspeed < 0) {
+//                            console.log("minus");
+                            flipperright.pointdiff++;
+                        }
+                        var currentright = flipperright.startpoint + flipperright.pointdiff;
+                        
+                        console.log("currentright changed: "+currentright);
+                    }
+                    
+                    //for testing
+//                    console.log(flipperright.current);
+//                    h.setMotorSpeed(0.25);
+                    
+                    if (flipperleft.current > flipperleft.max) {
+                        if (flipperleft.speed < 0) {
+                            flipperleft.speed = 0;
+                            c.setMotorSpeed(flipperleft.speed);
+                            flipperleft.currentspeed = flipperleft.speed;
+                        }
+                        else if (flipperleft.speed > 0) {
+                            c.setMotorSpeed(flipperleft.speed);
+                            flipperleft.currentspeed = flipperleft.speed;
+                        }
+                    }
+                    else if (flipperleft.current < flipperleft.min) {
+                        if (flipperleft.speed > 0) {
+                           flipperleft.speed = 0;
+                           c.setMotorSpeed(flipperleft.speed);
+                           flipperleft.currentspeed = flipperleft.speed;
+                        }
+                        else {
+                            c.setMotorSpeed(flipperleft.speed);
+                            flipperleft.currentspeed = flipperleft.speed;
+                        }
+                    }                  
+                    else if (flipperleft.currentspeed != flipperleft.speed) {
+                        c.setMotorSpeed(flipperleft.speed);
+                        flipperleft.currentspeed = flipperleft.speed;
+                    }
+                    
+                    if (currentright < flipperright.max) {
+                        if (flipperright.speed > 0) {
+                            console.log("max <");
+                            console.log("currentright: " + currentright);
+                            console.log("max currentdegree: " + flipperright.current);
+                            console.log("max speed: " + flipperright.speed);
+                            flipperright.lastspeed = flipperright.speed;
+                            flipperright.speed = 0;
+                            h.setMotorSpeed(flipperright.speed);
+                            flipperright.currentspeed = flipperright.speed;
+                        }
+                        else if (flipperright.speed > 0) {
+                            console.log("max >");
+                            console.log("currentright: " + currentright);
+                            console.log("max currentdegree: " + flipperright.current);
+                            console.log("max speed: " + flipperright.speed);
+                            flipperright.lastspeed = flipperright.speed;
+                            console.log(flipperright.speed);
+                            h.setMotorSpeed(flipperright.speed);
+                            flipperright.currentspeed = flipperright.speed;
+                        }
+                    }
+                    else if (currentright > flipperright.min) {
+                        if (flipperright.speed < 0) {
+                            console.log("--right minus--");
+                            console.log("--min <");
+                            console.log("currentright: " + currentright);
+                            
+                            flipperright.lastspeed = flipperright.speed;
+                            flipperright.speed = 0;
+                            h.setMotorSpeed(flipperright.speed);
+                            flipperright.currentspeed = flipperright.speed;
+                        }
+                        else if (flipperright.speed > 0) {
+                            console.log("--right minus--");
+                            console.log("--min >");
+                            console.log("currentright: " + currentright);
+                            flipperright.lastspeed = flipperright.speed;
+                            
+                            h.setMotorSpeed(flipperright.speed);
+                            flipperright.currentspeed = flipperright.speed;
+                        }
+                    }                  
+                    else if (flipperright.currentspeed != flipperright.speed) {
+                        flipperright.lastspeed = flipperright.speed;
+                        console.log("motor active");
+                        h.setMotorSpeed(flipperright.speed);
+                        flipperright.currentspeed = flipperright.speed;
+                    }
+                }
+            }
             
             function animate() {
-
+                //console.log("animate")
                 requestAnimationFrame( animate );
-                updatePhysics();
+                //updatePhysics(); //moved to gameloop
                 render();
-
+                stats.update();
             }
 
 			function render() {
-
 				renderer.render( scene, camera );
-                //loaded.a.rotation.x += 0.01;
-
 			}
 
 		</script>
