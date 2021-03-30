@@ -22,6 +22,7 @@
       <a href="#about-the-project">About The Project</a>
       <ul>
         <li><a href="#built-with">Built With</a></li>
+          <li><a href="#next-up">Next up</a></li>
       </ul>
     </li>
     <li><a href="#contact">Contact</a></li>
@@ -45,6 +46,13 @@ Pinball machine created with Cannon.js
 * ~~[GSAP](https://greensock.com/gsap/)~~ (Removed for now)
 * [Blender](https://www.blender.org/)
 
+### Next up
+
+* Fixing right flipper spamming bug
+* Adding scoreboard
+* Adding sounds
+* Improving playfield
+* Adding more animation
 
 
 <!-- CONTACT -->
