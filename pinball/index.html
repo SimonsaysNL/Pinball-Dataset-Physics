@@ -28,7 +28,7 @@
             //import '../build/cannon.js';
             import '../build/bllem-cannon.js';
 
-            let camera, scene, renderer, world, mass, body, shape, geometry, material, mesh, flipperleft, flipperright, field, bumperleft, bumperright, object, currentright, c, h;
+            let camera, scene, renderer, world, mass, body, shape, geometry, material, mesh, flipperleft, flipperright, field, bumperleft, bumperright, object, c, h;
             
             const timeStep = 1/120;
             
@@ -473,7 +473,7 @@
                 const delta  = clock.getDelta() ;
                 //console.log(delta);
                 
-                const ticks =  Math.round( delta / ( 1 / 120 ) );
+                let ticks =  Math.round( delta / ( 1 / 120 ) );
 
                 setTimeout( ()=> {
                     //console.log("gameloop")
@@ -492,6 +492,8 @@
                     //setting previous degree 
                     let lastcurrent;
                     let nowcurrent = Math.round(flipperright.current);
+                    let currentright;
+                    
                     if (nowcurrent == 0){
                         lastcurrent = flipperright.startpoint;
                     }
