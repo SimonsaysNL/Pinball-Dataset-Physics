@@ -55,7 +55,7 @@
             
             const mat_ground = new CANNON.ContactMaterial(cannonMaterials["groundMaterial"], cannonMaterials["mat"], { friction: 0.0, restitution: 0.2 });
             const mat_bumper = new CANNON.ContactMaterial(cannonMaterials["bumperMaterial"], cannonMaterials["mat"], { friction: 0.0, restitution: 1.5 });
-            const mat_slingshot = new CANNON.ContactMaterial(cannonMaterials["slingshotMaterial"], cannonMaterials["mat"], { friction: 0.0, restitution: 1.5 });
+            const mat_slingshot = new CANNON.ContactMaterial(cannonMaterials["slingshotMaterial"], cannonMaterials["mat"], { friction: 0.4, restitution: 1.5 });
             const mat_flipper = new CANNON.ContactMaterial(cannonMaterials["flipperMaterial"], cannonMaterials["mat"], { friction: 0.0, restitution: 1.5 });
             
             const matStdObjects = new THREE.MeshLambertMaterial({color: 0xffffff});
@@ -130,6 +130,7 @@
                 
                 world.addContactMaterial(mat_ground);
                 world.addContactMaterial(mat_bumper);
+                world.addContactMaterial(mat_slingshot);
                 
                 animate();
 
