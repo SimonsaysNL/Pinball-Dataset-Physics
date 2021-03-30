@@ -36,7 +36,7 @@
 
 ![](pinball-physics.PNG)
 
-Pinball machine created with Cannon.js
+Pinball machine prototype created with Cannon.js
 
 
 ### Built With
@@ -53,6 +53,7 @@ Pinball machine created with Cannon.js
 * Adding sounds
 * Improving playfield
 * Adding more animation
+* Compatibility with latest version Three.js by using BufferGeometry instead of Geometry (deprecated in r125).
 
 
 <!-- CONTACT -->
