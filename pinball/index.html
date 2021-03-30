@@ -134,7 +134,6 @@
                 world.addContactMaterial(mat_ground);
                 world.addContactMaterial(mat_bumper);
                 
-                createBall();
                 animate();
 
             }
@@ -359,7 +358,7 @@
                 manager.onLoad = function ( ) {
                     //console.log( 'Loading complete!');
                     loadingDone = true;
-                    initFlippers();
+                    initMachine();
                 };
 
                 manager.onProgress = function ( url, itemsLoaded, itemsTotal ) {
@@ -371,9 +370,10 @@
                 };
             }
             
-            function initFlippers(){
+            function initMachine(){
                 flipperHinge();
                 flipperStartPos();
+                createBall();
             }
             
             function flipperHinge() {
@@ -456,12 +456,10 @@
                 // Step the physics world
                 world.step(timeStep);
 
-                // Copy coordinates from Cannon.js to Three.js
-                balls[0].position.copy(body.position);
-                balls[0].quaternion.copy(body.quaternion);
-
-                //console.log(bodies);
                 if(loadingDone) {
+                    // Copy coordinates from Cannon.js to Three.js
+                    balls[0].position.copy(body.position);
+                    balls[0].quaternion.copy(body.quaternion);
                     loaded.c.gltf.scene.position.copy(bodies.c.position);
                     loaded.c.gltf.scene.quaternion.copy(bodies.c.quaternion);
                     loaded.h.gltf.scene.position.copy(bodies.h.position);
